@@ -1,218 +1,181 @@
-🚀 AI-Powered Automated Purchase Request System
+# AI-Powered Automated Purchase Request System
 
-End-to-end intelligent inventory monitoring & supplier automation using n8n + AI logic
+End-to-end intelligent inventory monitoring and supplier automation built using **n8n**, **Microsoft Excel**, and **Gmail API**.  
+This workflow predicts stock shortages, optimizes supplier selection, and automatically sends purchase request emails without manual intervention.
 
+---
 
+## Overview
 
+Manual inventory management often leads to stockouts, delayed procurement, and revenue loss.  
+This project automates the entire procurement decision process by analyzing inventory trends, predicting stock depletion, and notifying suppliers proactively.
 
+---
 
+## Key Features
 
+- Daily scheduled automation
+- Inventory trend and consumption analysis
+- Stockout prediction logic
+- Low-stock detection with thresholds
+- Lowest-cost supplier selection
+- Automated urgency-based email alerts
+- Production-ready workflow design
 
+---
 
-🌟 Why This Project Matters
+## Workflow Flow
 
-Manual inventory checks lead to:
-
-❌ Stockouts
-
-❌ Revenue loss
-
-❌ Delayed supplier communication
-
-This project solves all three automatically.
-
-👉 The workflow predicts stockouts before they happen and intelligently contacts suppliers with urgency-aware purchase requests — without human intervention.
-
-🧠 What Makes This Project Special
-
-✔ Predictive inventory analytics
-✔ Automated decision-making
-✔ Supplier cost optimization
-✔ Real-world business logic
-✔ Production-ready automation
-
-This is not just an automation — it’s an AI-assisted procurement system.
-
-⚙️ High-Level Workflow
 Daily Trigger
-   ↓
+↓
 Read Inventory Data (Excel)
-   ↓
-Analyze Consumption Trends
-   ↓
+↓
+Analyze Inventory Trends
+↓
 Predict Stockout Risk
-   ↓
-Merge with Supplier Data
-   ↓
-Select Lowest-Cost Supplier
-   ↓
-Generate Urgency-Aware Email
-   ↓
-Send Automated Purchase Request
+↓
+Merge Supplier Data
+↓
+Select Lowest Cost Supplier
+↓
+Generate Purchase Request Email
+↓
+Send Email via Gmail API
 
-🔑 Core Features
-⏰ Scheduled Automation
 
-Runs daily at 9:00 AM
+---
 
-No manual execution required
+## Technical Stack
 
-📊 Inventory Intelligence
+- Automation Platform: n8n
+- Data Source: Microsoft Excel
+- Logic Engine: JavaScript (n8n Code Nodes)
+- Email Service: Gmail API (OAuth2)
 
-Average daily consumption
+---
 
-Stock trend detection
+## Inventory Data Structure
 
-Days-until-stockout prediction
+### Inventory Table
 
-🔮 Predictive Alerts
+| Column | Description |
+|------|------------|
+| itemName | Product name |
+| quantity | Current stock |
+| date / timestamp | Inventory record date |
 
-Flags items running out within 7 days
+### Supplier Table
 
-Categorizes urgency automatically
+| Column | Description |
+|------|------------|
+| itemName | Linked product |
+| supplierName | Supplier name |
+| supplierEmail | Supplier contact |
+| unitCost | Cost per unit |
 
-💰 Smart Supplier Selection
+---
 
-Groups items by supplier
+## Configuration Parameters
 
-Selects lowest unit cost
+All key parameters are centralized for easy customization.
 
-Prevents unnecessary overspending
+---
 
-📧 Automated Email System
+## Stock Urgency Logic
 
-Professionally formatted purchase requests
+| Days Until Stockout | Alert Level |
+|--------------------|------------|
+| ≤ 3 days | Critical |
+| ≤ 7 days | High |
+| > 7 days | Moderate |
 
-Dynamic urgency labels:
+---
 
-CRITICAL
+## Setup Instructions
 
-HIGH
+1. Import the workflow JSON into n8n
+2. Replace all placeholder values:
+   - Excel workbook ID
+   - Worksheet ID
+   - Table names
+3. Connect Microsoft Excel OAuth credentials
+4. Connect Gmail OAuth credentials
+5. Activate the workflow
 
-MODERATE
+---
 
-🧩 Technical Breakdown
-🔹 Automation Platform
+## Security Considerations
 
-n8n (Low-Code Automation)
+- OAuth2 authentication for all integrations
+- No credentials stored in code
+- Safe for production deployment
 
-🔹 Data Sources
+---
 
-Microsoft Excel (Inventory & Supplier tables)
+## Use Cases
 
-🔹 Logic Engine
+- Retail inventory automation
+- Warehouse stock monitoring
+- Supply chain optimization
+- Automated procurement systems
+- Predictive operations management
 
-Custom JavaScript (n8n Code Nodes)
+---
 
-Trend analysis & decision logic
+## Repository Structure
 
-🔹 Communication
+AI-Automated-Purchase-Request/
+│
+├── AI automated purchase request.json
+└── README.md
 
-Gmail API (OAuth2 secured)
 
-📂 Required Data Structure
-Inventory Table
-Column	Description
-itemName	Product name
-quantity	Current stock
-date / timestamp	Inventory record date
-Supplier Table
-Column	Description
-itemName	Linked product
-supplierName	Supplier
-supplierEmail	Contact email
-unitCost	Cost per unit
-⚙️ Configurable Parameters
-lowStockThreshold: 10
-minimumCostThreshold: 100
-trendAnalysisDays: 30
+---
 
+## Future Enhancements
 
-All configurations are centralized for easy scaling and maintenance.
+- Inventory analytics dashboard
+- Slack or Microsoft Teams alerts
+- Automated purchase order generation
+- Supplier performance metrics
+- Multi-currency support
 
-🚨 Urgency Classification Logic
-Days Until Stockout	Alert Level
-≤ 3 days	🔴 CRITICAL
-≤ 7 days	🟠 HIGH
-> 7 days	🟡 MODERATE
+---
 
-This ensures suppliers respond with the right priority.
+## Author
 
-🚀 Getting Started
-1️⃣ Import Workflow
+GK  
+AI Automation and Workflow Engineering
 
-Upload the .json file into n8n
+---
 
-2️⃣ Configure Placeholders
+## License
 
-Excel Workbook ID
+This project is provided for educational and demonstration purposes.
 
-Worksheet ID
+---
 
-Table names
+## Future Enhancements
 
-3️⃣ Connect Credentials
+- Inventory analytics dashboard
+- Slack or Microsoft Teams alerts
+- Automated purchase order generation
+- Supplier performance metrics
+- Multi-currency support
 
-Microsoft Excel OAuth
+---
 
-Gmail OAuth
+## Author
 
-4️⃣ Activate Workflow
+GK  
+AI Automation and Workflow Engineering
 
-Sit back — the system runs itself 🤖
+---
 
-🔐 Security & Best Practices
+## License
 
-🔒 OAuth2 authentication
+This project is provided for educational and demonstration purposes.
 
-🚫 No hard-coded credentials
 
-✅ Production-safe workflow
 
-📦 Modular, reusable nodes
 
-🧪 Real-World Use Cases
-
-Retail inventory management
-
-Warehouse automation
-
-Supply chain optimization
-
-Automated procurement systems
-
-AI-driven operations monitoring
-
-📁 Repository Contents
-📦 AI-Automated-Purchase-Request
- ┣ 📄 AI automated purchase request.json
- ┣ 📄 README.md
-
-📈 Future Enhancements
-
-📊 Analytics dashboard
-
-📩 Slack / Teams alerts
-
-📦 Auto-generated purchase orders
-
-🤖 Supplier performance scoring
-
-🌍 Multi-currency support
-
-👤 Author
-
-GK
-AI Automation | Data & Workflow Engineering
-
-If you’re a recruiter or reviewer — this project demonstrates real business automation, predictive logic, and production-grade workflow design.
-
-⭐ Show Your Support
-
-If you found this useful:
-
-⭐ Star the repo
-
-🍴 Fork it
-
-🧠 Use it as a base for your own automation
