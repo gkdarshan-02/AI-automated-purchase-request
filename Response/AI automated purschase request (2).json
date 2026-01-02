@@ -1,0 +1,1490 @@
+{
+  "name": "AI automated purschase request",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "acfd5953-3906-42ac-859a-d5ad0a979a8f",
+      "name": "Daily Supplier Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        2928,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "excelFileId",
+              "value": "<__PLACEHOLDER_VALUE__Your Excel File ID from Microsoft OneDrive or SharePoint__>",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "excelWorkbookId",
+              "value": "<__PLACEHOLDER_VALUE__Your Excel Workbook ID__>",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "excelWorksheetId",
+              "value": "<__PLACEHOLDER_VALUE__Your Excel Worksheet ID or name__>",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "lowStockThreshold",
+              "value": 10,
+              "type": "number"
+            },
+            {
+              "id": "id-5",
+              "name": "minimumCostThreshold",
+              "value": 100,
+              "type": "number"
+            },
+            {
+              "id": "id-6",
+              "name": "inventoryWorkbookId",
+              "value": "<__PLACEHOLDER_VALUE__Your Inventory Excel Workbook ID__>",
+              "type": "string"
+            },
+            {
+              "id": "id-7",
+              "name": "inventoryWorksheetId",
+              "value": "<__PLACEHOLDER_VALUE__Your Inventory Excel Worksheet ID or name__>",
+              "type": "string"
+            },
+            {
+              "id": "id-8",
+              "name": "inventoryTableId",
+              "value": "<__PLACEHOLDER_VALUE__Your Inventory Table Name (e.g., InventoryHistory)__>",
+              "type": "string"
+            },
+            {
+              "id": "id-9",
+              "name": "trendAnalysisDays",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "538b4bd4-042d-40cd-8073-6a76beb6255c",
+              "name": "Month",
+              "value": "={{ $json.Month }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "1a32dfd2-d994-4e05-8a32-ace53d2cfdca",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3152,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all items from input\nconst items = $input.all();\n\n// Get thresholds from Workflow Configuration node\nconst config = $('Workflow Configuration').first().json;\nconst lowStockThreshold = config.lowStockThreshold;\n\n// Group items by supplier\nconst supplierMap = {};\n\nfor (const item of items) {\n  const data = item.json;\n  const supplierEmail = data.supplierEmail;\n  \n  if (!supplierMap[supplierEmail]) {\n    supplierMap[supplierEmail] = {\n      email: supplierEmail,\n      items: []\n    };\n  }\n  \n  supplierMap[supplierEmail].items.push(data);\n}\n\n// Process each supplier to find low stock items with lowest cost\nconst results = [];\n\nfor (const supplierEmail in supplierMap) {\n  const supplier = supplierMap[supplierEmail];\n  \n  // Filter items with low stock (below threshold)\n  const lowStockItems = supplier.items.filter(item => item.quantity < lowStockThreshold);\n  \n  if (lowStockItems.length > 0) {\n    // Find the item with lowest unit cost\n    const lowestCostItem = lowStockItems.reduce((min, item) => {\n      return item.unitCost < min.unitCost ? item : min;\n    });\n    \n    // Add to results\n    results.push({\n      supplierEmail: supplierEmail,\n      itemName: lowestCostItem.itemName,\n      quantity: lowestCostItem.quantity,\n      unitCost: lowestCostItem.unitCost,\n      totalCost: lowestCostItem.quantity * lowestCostItem.unitCost\n    });\n  }\n}\n\n// Return results in n8n format\nreturn results.map(item => ({json: item}));"
+      },
+      "id": "f9024911-5bd6-48eb-a529-392a28fa0502",
+      "name": "Find Low Stock High Cost Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4496,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.supplierEmail }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "id-2",
+              "leftValue": "={{ $json.quantity }}",
+              "rightValue": "={{ $('Workflow Configuration').item.json.lowStockThreshold }}",
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1b36cdce-b92a-4080-b150-cb7d09c20c3a",
+      "name": "Filter Items to Order",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        4720,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "emailTo",
+              "value": "={{ $json.supplierEmail }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "emailSubject",
+              "value": "Urgent: Low Stock Alert - Order Request",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "emailBody",
+              "value": "=Dear {{ $json.supplierName }},\n\nWe are writing to inform you that we have identified a low stock situation for one of your products that requires immediate attention.\n\nProduct Details:\n- Item Name: {{ $json.itemName }}\n- Current Quantity: {{ $json.quantity }}\n- Unit Cost: ${{ $json.unitCost }}\n- Days Until Stockout: {{ $json.daysUntilStockout }} days\n- Average Daily Consumption: {{ $json.averageDailyConsumption }} units\n- Trend: {{ $json.trend }}\n\n⚠️ URGENCY LEVEL: {{ $json.daysUntilStockout <= 3 ? 'CRITICAL - Immediate action required!' : $json.daysUntilStockout <= 7 ? 'HIGH - Please respond within 24 hours' : 'MODERATE - Please respond within 48 hours' }}\n\nGiven the current stock levels and consumption rate, we would like to request a restocking order at your earliest convenience to avoid stockout.\n\nPlease confirm the availability and estimated delivery time for the recommended order quantity. If you have any questions or need additional information, feel free to reach out.\n\nThank you for your prompt attention to this matter.\n\nBest regards,\nInventory Management Team",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3d82eb71-b92e-4b4f-89bd-f9dacbaf4936",
+      "name": "Prepare Email Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4944,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.emailTo }}",
+        "subject": "={{ $json.emailSubject }}",
+        "emailType": "text",
+        "message": "={{ $json.emailBody }}",
+        "options": {}
+      },
+      "id": "bc1c7fab-0cd7-43f7-8be2-63c802aaf94c",
+      "name": "Send Email to Supplier",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        5168,
+        496
+      ],
+      "webhookId": "eb2cec58-f747-4ab8-8e60-f9edd373c9b8",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "hZmvkdClzJKPb26v",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "getRows",
+        "workbook": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.excelWorkbookId }}"
+        },
+        "worksheet": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.excelWorksheetId }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "<__PLACEHOLDER_VALUE__Your Excel Table Name (e.g., SupplierData)__>"
+        },
+        "returnAll": true,
+        "filters": {}
+      },
+      "id": "628fc9b5-ebe1-498c-945a-fcb344ee70b4",
+      "name": "Read Supplier Dataset",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2.2,
+      "position": [
+        4048,
+        832
+      ],
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "yv4UMWNjUIqdNdkm",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "getRows",
+        "workbook": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryWorkbookId }}"
+        },
+        "worksheet": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryWorksheetId }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryTableId }}"
+        },
+        "returnAll": true,
+        "filters": {}
+      },
+      "id": "a330d42f-8c61-4bb0-981c-8ca8521c0a11",
+      "name": "Read Inventory Data",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2.2,
+      "position": [
+        3376,
+        832
+      ],
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "yv4UMWNjUIqdNdkm",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "# Loop over input items and add a new field called 'my_new_field' to the JSON of each one\nfor item in _items:\n  item[\"json\"][\"my_new_field\"] = 1\nreturn _items"
+      },
+      "id": "797ba4ef-47ed-42da-933e-3c46f3f95d6b",
+      "name": "Analyze Inventory Trends",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3600,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get filtered inventory trends (only running out items) from Filter Items Running Out node\nconst inventoryTrends = $('Filter Items Running Out').all();\n\n// Get supplier data from Read Supplier Dataset node\nconst supplierData = $input.all();\n\n// Create a map of supplier data by itemName for quick lookup\nconst supplierMap = {};\nfor (const item of supplierData) {\n  const data = item.json;\n  supplierMap[data.itemName] = data;\n}\n\n// Merge inventory trends with supplier data (only running out items)\nconst mergedResults = [];\n\nfor (const inventoryItem of inventoryTrends) {\n  const inventory = inventoryItem.json;\n  const supplier = supplierMap[inventory.itemName];\n  \n  if (supplier) {\n    // Combine data to create enriched records\n    mergedResults.push({\n      supplierEmail: supplier.supplierEmail,\n      supplierName: supplier.supplierName,\n      itemName: inventory.itemName,\n      quantity: inventory.currentQuantity,\n      unitCost: supplier.unitCost,\n      isRunningOut: inventory.isRunningOut,\n      daysUntilStockout: inventory.daysUntilStockout,\n      averageDailyConsumption: inventory.averageDailyConsumption,\n      trend: inventory.trend\n    });\n  }\n}\n\n// Return results in n8n format\nreturn mergedResults.map(item => ({json: item}));"
+      },
+      "id": "73c93068-9b55-422e-860e-736e0ad3839d",
+      "name": "Merge Inventory with Supplier Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4272,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.isRunningOut }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "478a6d6f-386c-4959-9d54-1a765206e369",
+      "name": "Filter Items Running Out",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        3824,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "subject:\"Re: Urgent: Low Stock Alert\""
+        },
+        "options": {}
+      },
+      "id": "06ba0d74-c1b3-4f67-a933-c4e51d25f8da",
+      "name": "Supplier Email Response",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        2928,
+        944
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "hZmvkdClzJKPb26v",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Get email data from Gmail trigger\nconst emailData = $input.item.json;\n\n// Extract supplier email from 'from' field\nconst supplierEmail = emailData.from || emailData.sender || '';\n\n// Extract email subject and body\nconst subject = emailData.subject || '';\nconst body = emailData.textPlain || emailData.snippet || emailData.body || '';\n\n// Combine subject and body for parsing\nconst emailText = (subject + ' ' + body).toLowerCase();\n\n// Extract item name (look for patterns like \"Item Name:\", \"Product:\", \"Item:\")\nlet itemName = '';\nconst itemNamePatterns = [\n  /item name[:\\s]+([^\\n,]+)/i,\n  /product[:\\s]+([^\\n,]+)/i,\n  /item[:\\s]+([^\\n,]+)/i\n];\nfor (const pattern of itemNamePatterns) {\n  const match = emailText.match(pattern);\n  if (match) {\n    itemName = match[1].trim();\n    break;\n  }\n}\n\n// Extract delivery date (look for date patterns)\nlet deliveryDate = null;\nconst datePatterns = [\n  /delivery date[:\\s]+(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})/i,\n  /deliver[^\\d]+(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})/i,\n  /estimated delivery[:\\s]+(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})/i,\n  /(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})/\n];\nfor (const pattern of datePatterns) {\n  const match = emailText.match(pattern);\n  if (match) {\n    deliveryDate = match[1].trim();\n    break;\n  }\n}\n\n// Extract quantity confirmed (look for quantity patterns)\nlet quantityConfirmed = null;\nconst quantityPatterns = [\n  /quantity[:\\s]+(\\d+)/i,\n  /confirm[^\\d]+(\\d+)\\s*units/i,\n  /(\\d+)\\s*units/i\n];\nfor (const pattern of quantityPatterns) {\n  const match = emailText.match(pattern);\n  if (match) {\n    quantityConfirmed = parseInt(match[1]);\n    break;\n  }\n}\n\n// Determine order status based on keywords\nlet orderStatus = 'pending';\nif (emailText.includes('confirm') || emailText.includes('approved') || emailText.includes('accepted')) {\n  orderStatus = 'confirmed';\n} else if (emailText.includes('reject') || emailText.includes('decline') || emailText.includes('cannot fulfill')) {\n  orderStatus = 'rejected';\n} else if (emailText.includes('delay') || emailText.includes('postpone')) {\n  orderStatus = 'delayed';\n}\n\n// Get response date (email received date)\nconst responseDate = emailData.date || emailData.receivedDateTime || new Date().toISOString();\n\n// Return structured data\nreturn {\n  json: {\n    supplierEmail: supplierEmail,\n    itemName: itemName,\n    deliveryDate: deliveryDate,\n    quantityConfirmed: quantityConfirmed,\n    orderStatus: orderStatus,\n    responseDate: responseDate,\n    originalSubject: subject,\n    originalBody: body\n  }\n};"
+      },
+      "id": "3e8bc338-1625-48f0-9c95-5c23b7ecfe2a",
+      "name": "Parse Supplier Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3152,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get parsed supplier response data from previous node\nconst items = $input.all();\n\n// Prepare data for Excel update\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // Create new row entry for inventory Excel sheet\n  const inventoryUpdate = {\n    date: new Date().toISOString().split('T')[0], // Current date in YYYY-MM-DD format\n    timestamp: new Date().toISOString(), // Full timestamp\n    itemName: data.itemName || '',\n    quantity: data.updatedQuantity || data.quantity || 0,\n    supplierResponseStatus: data.responseStatus || 'Pending',\n    deliveryDate: data.deliveryDate || '',\n    notes: data.notes || data.supplierNotes || '',\n    supplierEmail: data.supplierEmail || '',\n    supplierName: data.supplierName || '',\n    orderConfirmed: data.orderConfirmed || false,\n    estimatedDeliveryDays: data.estimatedDeliveryDays || null\n  };\n  \n  results.push(inventoryUpdate);\n}\n\n// Return results in n8n format\nreturn results.map(item => ({json: item}));"
+      },
+      "id": "c9ed87ff-b73a-493c-a2d3-156d92b27ea6",
+      "name": "Prepare Inventory Update Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3376,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "workbook": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryWorkbookId }}"
+        },
+        "worksheet": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryWorksheetId }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryTableId }}"
+        },
+        "dataMode": "autoMap",
+        "options": {}
+      },
+      "id": "6f9953ea-0d93-416f-b1f4-4c4c6ca3b1d2",
+      "name": "Update Inventory Excel",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2.2,
+      "position": [
+        3600,
+        944
+      ],
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "yv4UMWNjUIqdNdkm",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "acfd5953-3906-42ac-859a-d5ad0a979a8f",
+      "name": "Daily Supplier Check1",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        2928,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "excelFileId",
+              "value": "<__PLACEHOLDER_VALUE__Your Excel File ID from Microsoft OneDrive or SharePoint__>",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "excelWorkbookId",
+              "value": "<__PLACEHOLDER_VALUE__Your Excel Workbook ID__>",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "excelWorksheetId",
+              "value": "<__PLACEHOLDER_VALUE__Your Excel Worksheet ID or name__>",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "lowStockThreshold",
+              "value": 10,
+              "type": "number"
+            },
+            {
+              "id": "id-5",
+              "name": "minimumCostThreshold",
+              "value": 100,
+              "type": "number"
+            },
+            {
+              "id": "id-6",
+              "name": "inventoryWorkbookId",
+              "value": "<__PLACEHOLDER_VALUE__Your Inventory Excel Workbook ID__>",
+              "type": "string"
+            },
+            {
+              "id": "id-7",
+              "name": "inventoryWorksheetId",
+              "value": "<__PLACEHOLDER_VALUE__Your Inventory Excel Worksheet ID or name__>",
+              "type": "string"
+            },
+            {
+              "id": "id-8",
+              "name": "inventoryTableId",
+              "value": "<__PLACEHOLDER_VALUE__Your Inventory Table Name (e.g., InventoryHistory)__>",
+              "type": "string"
+            },
+            {
+              "id": "id-9",
+              "name": "trendAnalysisDays",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "538b4bd4-042d-40cd-8073-6a76beb6255c",
+              "name": "Month",
+              "value": "={{ $json.Month }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "1a32dfd2-d994-4e05-8a32-ace53d2cfdca",
+      "name": "Workflow Configuration1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3152,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all items from input\nconst items = $input.all();\n\n// Get thresholds from Workflow Configuration node\nconst config = $('Workflow Configuration').first().json;\nconst lowStockThreshold = config.lowStockThreshold;\n\n// Group items by supplier\nconst supplierMap = {};\n\nfor (const item of items) {\n  const data = item.json;\n  const supplierEmail = data.supplierEmail;\n  \n  if (!supplierMap[supplierEmail]) {\n    supplierMap[supplierEmail] = {\n      email: supplierEmail,\n      items: []\n    };\n  }\n  \n  supplierMap[supplierEmail].items.push(data);\n}\n\n// Process each supplier to find low stock items with lowest cost\nconst results = [];\n\nfor (const supplierEmail in supplierMap) {\n  const supplier = supplierMap[supplierEmail];\n  \n  // Filter items with low stock (below threshold)\n  const lowStockItems = supplier.items.filter(item => item.quantity < lowStockThreshold);\n  \n  if (lowStockItems.length > 0) {\n    // Find the item with lowest unit cost\n    const lowestCostItem = lowStockItems.reduce((min, item) => {\n      return item.unitCost < min.unitCost ? item : min;\n    });\n    \n    // Add to results\n    results.push({\n      supplierEmail: supplierEmail,\n      itemName: lowestCostItem.itemName,\n      quantity: lowestCostItem.quantity,\n      unitCost: lowestCostItem.unitCost,\n      totalCost: lowestCostItem.quantity * lowestCostItem.unitCost\n    });\n  }\n}\n\n// Return results in n8n format\nreturn results.map(item => ({json: item}));"
+      },
+      "id": "f9024911-5bd6-48eb-a529-392a28fa0502",
+      "name": "Find Low Stock High Cost Items1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4496,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.supplierEmail }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "id-2",
+              "leftValue": "={{ $json.quantity }}",
+              "rightValue": "={{ $('Workflow Configuration').item.json.lowStockThreshold }}",
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1b36cdce-b92a-4080-b150-cb7d09c20c3a",
+      "name": "Filter Items to Order1",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        4720,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "emailTo",
+              "value": "={{ $json.supplierEmail }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "emailSubject",
+              "value": "Urgent: Low Stock Alert - Order Request",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "emailBody",
+              "value": "=Dear {{ $json.supplierName }},\n\nWe are writing to inform you that we have identified a low stock situation for one of your products that requires immediate attention.\n\nProduct Details:\n- Item Name: {{ $json.itemName }}\n- Current Quantity: {{ $json.quantity }}\n- Unit Cost: ${{ $json.unitCost }}\n- Days Until Stockout: {{ $json.daysUntilStockout }} days\n- Average Daily Consumption: {{ $json.averageDailyConsumption }} units\n- Trend: {{ $json.trend }}\n\n⚠️ URGENCY LEVEL: {{ $json.daysUntilStockout <= 3 ? 'CRITICAL - Immediate action required!' : $json.daysUntilStockout <= 7 ? 'HIGH - Please respond within 24 hours' : 'MODERATE - Please respond within 48 hours' }}\n\nGiven the current stock levels and consumption rate, we would like to request a restocking order at your earliest convenience to avoid stockout.\n\nPlease confirm the availability and estimated delivery time for the recommended order quantity. If you have any questions or need additional information, feel free to reach out.\n\nThank you for your prompt attention to this matter.\n\nBest regards,\nInventory Management Team",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3d82eb71-b92e-4b4f-89bd-f9dacbaf4936",
+      "name": "Prepare Email Data1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4944,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.emailTo }}",
+        "subject": "={{ $json.emailSubject }}",
+        "emailType": "text",
+        "message": "={{ $json.emailBody }}",
+        "options": {}
+      },
+      "id": "bc1c7fab-0cd7-43f7-8be2-63c802aaf94c",
+      "name": "Send Email to Supplier1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        5168,
+        832
+      ],
+      "webhookId": "eb2cec58-f747-4ab8-8e60-f9edd373c9b8",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "hZmvkdClzJKPb26v",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "getRows",
+        "workbook": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.excelWorkbookId }}"
+        },
+        "worksheet": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.excelWorksheetId }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "<__PLACEHOLDER_VALUE__Your Excel Table Name (e.g., SupplierData)__>"
+        },
+        "returnAll": true,
+        "filters": {}
+      },
+      "id": "628fc9b5-ebe1-498c-945a-fcb344ee70b4",
+      "name": "Read Supplier Dataset1",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2.2,
+      "position": [
+        4048,
+        832
+      ],
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "yv4UMWNjUIqdNdkm",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "getRows",
+        "workbook": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryWorkbookId }}"
+        },
+        "worksheet": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryWorksheetId }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryTableId }}"
+        },
+        "returnAll": true,
+        "filters": {}
+      },
+      "id": "a330d42f-8c61-4bb0-981c-8ca8521c0a11",
+      "name": "Read Inventory Data1",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2.2,
+      "position": [
+        3376,
+        832
+      ],
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "yv4UMWNjUIqdNdkm",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all inventory records from input\nconst items = $input.all();\n\n// Get trend analysis days from Workflow Configuration\nconst config = $('Workflow Configuration').first().json;\nconst trendAnalysisDays = config.trendAnalysisDays || 30; // Default to 30 days if not set\n\n// Group records by itemName\nconst itemGroups = {};\n\nfor (const item of items) {\n  const data = item.json;\n  const itemName = data.itemName;\n  \n  if (!itemGroups[itemName]) {\n    itemGroups[itemName] = [];\n  }\n  \n  itemGroups[itemName].push({\n    date: new Date(data.date || data.timestamp),\n    quantity: data.quantity\n  });\n}\n\n// Analyze trends for each item\nconst results = [];\n\nfor (const itemName in itemGroups) {\n  const records = itemGroups[itemName];\n  \n  // Sort records by date\n  records.sort((a, b) => a.date - b.date);\n  \n  // Get current quantity (most recent record)\n  const currentQuantity = records[records.length - 1].quantity;\n  \n  // Calculate average daily consumption rate\n  let totalConsumption = 0;\n  let daysCounted = 0;\n  \n  for (let i = 1; i < records.length; i++) {\n    const consumption = records[i - 1].quantity - records[i].quantity;\n    if (consumption > 0) {\n      totalConsumption += consumption;\n      daysCounted++;\n    }\n  }\n  \n  const averageDailyConsumption = daysCounted > 0 ? totalConsumption / daysCounted : 0;\n  \n  // Calculate days until stockout\n  let daysUntilStockout = null;\n  if (averageDailyConsumption > 0) {\n    daysUntilStockout = Math.floor(currentQuantity / averageDailyConsumption);\n  }\n  \n  // Determine trend (increasing/stable/declining)\n  let trend = 'stable';\n  if (records.length >= 2) {\n    const firstHalfAvg = records.slice(0, Math.floor(records.length / 2))\n      .reduce((sum, r) => sum + r.quantity, 0) / Math.floor(records.length / 2);\n    const secondHalfAvg = records.slice(Math.floor(records.length / 2))\n      .reduce((sum, r) => sum + r.quantity, 0) / (records.length - Math.floor(records.length / 2));\n    \n    if (secondHalfAvg > firstHalfAvg * 1.1) {\n      trend = 'increasing';\n    } else if (secondHalfAvg < firstHalfAvg * 0.9) {\n      trend = 'declining';\n    }\n  }\n  \n  // Flag items that will run out within the next 7 days\n  const isRunningOut = daysUntilStockout !== null && daysUntilStockout <= 7;\n  \n  results.push({\n    itemName: itemName,\n    currentQuantity: currentQuantity,\n    averageDailyConsumption: averageDailyConsumption,\n    daysUntilStockout: daysUntilStockout,\n    isRunningOut: isRunningOut,\n    trend: trend\n  });\n}\n\n// Return results in n8n format\nreturn results.map(item => ({json: item}));"
+      },
+      "id": "797ba4ef-47ed-42da-933e-3c46f3f95d6b",
+      "name": "Analyze Inventory Trends1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3600,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get filtered inventory trends (only running out items) from Filter Items Running Out node\nconst inventoryTrends = $('Filter Items Running Out').all();\n\n// Get supplier data from Read Supplier Dataset node\nconst supplierData = $input.all();\n\n// Create a map of supplier data by itemName for quick lookup\nconst supplierMap = {};\nfor (const item of supplierData) {\n  const data = item.json;\n  supplierMap[data.itemName] = data;\n}\n\n// Merge inventory trends with supplier data (only running out items)\nconst mergedResults = [];\n\nfor (const inventoryItem of inventoryTrends) {\n  const inventory = inventoryItem.json;\n  const supplier = supplierMap[inventory.itemName];\n  \n  if (supplier) {\n    // Combine data to create enriched records\n    mergedResults.push({\n      supplierEmail: supplier.supplierEmail,\n      supplierName: supplier.supplierName,\n      itemName: inventory.itemName,\n      quantity: inventory.currentQuantity,\n      unitCost: supplier.unitCost,\n      isRunningOut: inventory.isRunningOut,\n      daysUntilStockout: inventory.daysUntilStockout,\n      averageDailyConsumption: inventory.averageDailyConsumption,\n      trend: inventory.trend\n    });\n  }\n}\n\n// Return results in n8n format\nreturn mergedResults.map(item => ({json: item}));"
+      },
+      "id": "73c93068-9b55-422e-860e-736e0ad3839d",
+      "name": "Merge Inventory with Supplier Data1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4272,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.isRunningOut }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "478a6d6f-386c-4959-9d54-1a765206e369",
+      "name": "Filter Items Running Out1",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        3824,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "subject:\"Re: Urgent: Low Stock Alert\""
+        },
+        "options": {}
+      },
+      "id": "06ba0d74-c1b3-4f67-a933-c4e51d25f8da",
+      "name": "Supplier Email Response1",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        2928,
+        1056
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "hZmvkdClzJKPb26v",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Get email data from Gmail trigger\nconst emailData = $input.item.json;\n\n// Extract supplier email from 'from' field\nconst supplierEmail = emailData.from || emailData.sender || '';\n\n// Extract email subject and body\nconst subject = emailData.subject || '';\nconst body = emailData.textPlain || emailData.snippet || emailData.body || '';\n\n// Combine subject and body for parsing\nconst emailText = (subject + ' ' + body).toLowerCase();\n\n// Extract item name (look for patterns like \"Item Name:\", \"Product:\", \"Item:\")\nlet itemName = '';\nconst itemNamePatterns = [\n  /item name[:\\s]+([^\\n,]+)/i,\n  /product[:\\s]+([^\\n,]+)/i,\n  /item[:\\s]+([^\\n,]+)/i\n];\nfor (const pattern of itemNamePatterns) {\n  const match = emailText.match(pattern);\n  if (match) {\n    itemName = match[1].trim();\n    break;\n  }\n}\n\n// Extract delivery date (look for date patterns)\nlet deliveryDate = null;\nconst datePatterns = [\n  /delivery date[:\\s]+(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})/i,\n  /deliver[^\\d]+(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})/i,\n  /estimated delivery[:\\s]+(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})/i,\n  /(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})/\n];\nfor (const pattern of datePatterns) {\n  const match = emailText.match(pattern);\n  if (match) {\n    deliveryDate = match[1].trim();\n    break;\n  }\n}\n\n// Extract quantity confirmed (look for quantity patterns)\nlet quantityConfirmed = null;\nconst quantityPatterns = [\n  /quantity[:\\s]+(\\d+)/i,\n  /confirm[^\\d]+(\\d+)\\s*units/i,\n  /(\\d+)\\s*units/i\n];\nfor (const pattern of quantityPatterns) {\n  const match = emailText.match(pattern);\n  if (match) {\n    quantityConfirmed = parseInt(match[1]);\n    break;\n  }\n}\n\n// Determine order status based on keywords\nlet orderStatus = 'pending';\nif (emailText.includes('confirm') || emailText.includes('approved') || emailText.includes('accepted')) {\n  orderStatus = 'confirmed';\n} else if (emailText.includes('reject') || emailText.includes('decline') || emailText.includes('cannot fulfill')) {\n  orderStatus = 'rejected';\n} else if (emailText.includes('delay') || emailText.includes('postpone')) {\n  orderStatus = 'delayed';\n}\n\n// Get response date (email received date)\nconst responseDate = emailData.date || emailData.receivedDateTime || new Date().toISOString();\n\n// Return structured data\nreturn {\n  json: {\n    supplierEmail: supplierEmail,\n    itemName: itemName,\n    deliveryDate: deliveryDate,\n    quantityConfirmed: quantityConfirmed,\n    orderStatus: orderStatus,\n    responseDate: responseDate,\n    originalSubject: subject,\n    originalBody: body\n  }\n};"
+      },
+      "id": "3e8bc338-1625-48f0-9c95-5c23b7ecfe2a",
+      "name": "Parse Supplier Response1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3152,
+        1056
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get parsed supplier response data from previous node\nconst items = $input.all();\n\n// Prepare data for Excel update\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // Create new row entry for inventory Excel sheet\n  const inventoryUpdate = {\n    date: new Date().toISOString().split('T')[0], // Current date in YYYY-MM-DD format\n    timestamp: new Date().toISOString(), // Full timestamp\n    itemName: data.itemName || '',\n    quantity: data.updatedQuantity || data.quantity || 0,\n    supplierResponseStatus: data.responseStatus || 'Pending',\n    deliveryDate: data.deliveryDate || '',\n    notes: data.notes || data.supplierNotes || '',\n    supplierEmail: data.supplierEmail || '',\n    supplierName: data.supplierName || '',\n    orderConfirmed: data.orderConfirmed || false,\n    estimatedDeliveryDays: data.estimatedDeliveryDays || null\n  };\n  \n  results.push(inventoryUpdate);\n}\n\n// Return results in n8n format\nreturn results.map(item => ({json: item}));"
+      },
+      "id": "c9ed87ff-b73a-493c-a2d3-156d92b27ea6",
+      "name": "Prepare Inventory Update Data1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3376,
+        1056
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "workbook": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryWorkbookId }}"
+        },
+        "worksheet": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryWorksheetId }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryTableId }}"
+        },
+        "dataMode": "autoMap",
+        "options": {}
+      },
+      "id": "6f9953ea-0d93-416f-b1f4-4c4c6ca3b1d2",
+      "name": "Update Inventory Excel1",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2.2,
+      "position": [
+        3600,
+        1056
+      ],
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "yv4UMWNjUIqdNdkm",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "acfd5953-3906-42ac-859a-d5ad0a979a8f",
+      "name": "Daily Supplier Check2",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        2928,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "excelFileId",
+              "value": "<__PLACEHOLDER_VALUE__Your Excel File ID from Microsoft OneDrive or SharePoint__>",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "excelWorkbookId",
+              "value": "<__PLACEHOLDER_VALUE__Your Excel Workbook ID__>",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "excelWorksheetId",
+              "value": "<__PLACEHOLDER_VALUE__Your Excel Worksheet ID or name__>",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "lowStockThreshold",
+              "value": 10,
+              "type": "number"
+            },
+            {
+              "id": "id-5",
+              "name": "minimumCostThreshold",
+              "value": 100,
+              "type": "number"
+            },
+            {
+              "id": "id-6",
+              "name": "inventoryWorkbookId",
+              "value": "<__PLACEHOLDER_VALUE__Your Inventory Excel Workbook ID__>",
+              "type": "string"
+            },
+            {
+              "id": "id-7",
+              "name": "inventoryWorksheetId",
+              "value": "<__PLACEHOLDER_VALUE__Your Inventory Excel Worksheet ID or name__>",
+              "type": "string"
+            },
+            {
+              "id": "id-8",
+              "name": "inventoryTableId",
+              "value": "<__PLACEHOLDER_VALUE__Your Inventory Table Name (e.g., InventoryHistory)__>",
+              "type": "string"
+            },
+            {
+              "id": "id-9",
+              "name": "trendAnalysisDays",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "538b4bd4-042d-40cd-8073-6a76beb6255c",
+              "name": "Month",
+              "value": "={{ $json.Month }}",
+              "type": "string"
+            },
+            {
+              "id": "id-10",
+              "name": "usageLogWorkbookId",
+              "value": "<__PLACEHOLDER_VALUE__Material Usage Log Excel Workbook ID__>",
+              "type": "string"
+            },
+            {
+              "id": "id-11",
+              "name": "usageLogWorksheetId",
+              "value": "<__PLACEHOLDER_VALUE__Material Usage Log Excel Worksheet ID__>",
+              "type": "string"
+            },
+            {
+              "id": "id-12",
+              "name": "usageLogTableId",
+              "value": "<__PLACEHOLDER_VALUE__Material Usage Log Table Name (e.g., MaterialUsageLog)__>",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "1a32dfd2-d994-4e05-8a32-ace53d2cfdca",
+      "name": "Workflow Configuration2",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3152,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all items from input\nconst items = $input.all();\n\n// Get thresholds from Workflow Configuration node\nconst config = $('Workflow Configuration').first().json;\nconst lowStockThreshold = config.lowStockThreshold;\n\n// Group items by supplier\nconst supplierMap = {};\n\nfor (const item of items) {\n  const data = item.json;\n  const supplierEmail = data.supplierEmail;\n  \n  if (!supplierMap[supplierEmail]) {\n    supplierMap[supplierEmail] = {\n      email: supplierEmail,\n      items: []\n    };\n  }\n  \n  supplierMap[supplierEmail].items.push(data);\n}\n\n// Process each supplier to find low stock items with lowest cost\nconst results = [];\n\nfor (const supplierEmail in supplierMap) {\n  const supplier = supplierMap[supplierEmail];\n  \n  // Filter items with low stock (below threshold)\n  const lowStockItems = supplier.items.filter(item => item.quantity < lowStockThreshold);\n  \n  if (lowStockItems.length > 0) {\n    // Find the item with lowest unit cost\n    const lowestCostItem = lowStockItems.reduce((min, item) => {\n      return item.unitCost < min.unitCost ? item : min;\n    });\n    \n    // Add to results\n    results.push({\n      supplierEmail: supplierEmail,\n      itemName: lowestCostItem.itemName,\n      quantity: lowestCostItem.quantity,\n      unitCost: lowestCostItem.unitCost,\n      totalCost: lowestCostItem.quantity * lowestCostItem.unitCost\n    });\n  }\n}\n\n// Return results in n8n format\nreturn results.map(item => ({json: item}));"
+      },
+      "id": "f9024911-5bd6-48eb-a529-392a28fa0502",
+      "name": "Find Low Stock High Cost Items2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4496,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.supplierEmail }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "id-2",
+              "leftValue": "={{ $json.quantity }}",
+              "rightValue": "={{ $('Workflow Configuration').item.json.lowStockThreshold }}",
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1b36cdce-b92a-4080-b150-cb7d09c20c3a",
+      "name": "Filter Items to Order2",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        4720,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "emailTo",
+              "value": "={{ $json.supplierEmail }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "emailSubject",
+              "value": "Urgent: Low Stock Alert - Order Request",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "emailBody",
+              "value": "=Dear {{ $json.supplierName }},\n\nWe are writing to inform you that we have identified a low stock situation for one of your products that requires immediate attention.\n\nProduct Details:\n- Item Name: {{ $json.itemName }}\n- Current Quantity: {{ $json.quantity }}\n- Unit Cost: ${{ $json.unitCost }}\n- Days Until Stockout: {{ $json.daysUntilStockout }} days\n- Average Daily Consumption: {{ $json.averageDailyConsumption }} units\n- Trend: {{ $json.trend }}\n\n⚠️ URGENCY LEVEL: {{ $json.daysUntilStockout <= 3 ? 'CRITICAL - Immediate action required!' : $json.daysUntilStockout <= 7 ? 'HIGH - Please respond within 24 hours' : 'MODERATE - Please respond within 48 hours' }}\n\nGiven the current stock levels and consumption rate, we would like to request a restocking order at your earliest convenience to avoid stockout.\n\nPlease confirm the availability and estimated delivery time for the recommended order quantity. If you have any questions or need additional information, feel free to reach out.\n\nThank you for your prompt attention to this matter.\n\nBest regards,\nInventory Management Team",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3d82eb71-b92e-4b4f-89bd-f9dacbaf4936",
+      "name": "Prepare Email Data2",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4944,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.emailTo }}",
+        "subject": "={{ $json.emailSubject }}",
+        "emailType": "text",
+        "message": "={{ $json.emailBody }}",
+        "options": {}
+      },
+      "id": "bc1c7fab-0cd7-43f7-8be2-63c802aaf94c",
+      "name": "Send Email to Supplier2",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        5168,
+        832
+      ],
+      "webhookId": "eb2cec58-f747-4ab8-8e60-f9edd373c9b8",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "hZmvkdClzJKPb26v",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "getRows",
+        "workbook": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.excelWorkbookId }}"
+        },
+        "worksheet": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.excelWorksheetId }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "<__PLACEHOLDER_VALUE__Your Excel Table Name (e.g., SupplierData)__>"
+        },
+        "returnAll": true,
+        "filters": {}
+      },
+      "id": "628fc9b5-ebe1-498c-945a-fcb344ee70b4",
+      "name": "Read Supplier Dataset2",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2.2,
+      "position": [
+        4048,
+        832
+      ],
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "yv4UMWNjUIqdNdkm",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "getRows",
+        "workbook": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryWorkbookId }}"
+        },
+        "worksheet": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryWorksheetId }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryTableId }}"
+        },
+        "returnAll": true,
+        "filters": {}
+      },
+      "id": "a330d42f-8c61-4bb0-981c-8ca8521c0a11",
+      "name": "Read Inventory Data2",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2.2,
+      "position": [
+        3376,
+        832
+      ],
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "yv4UMWNjUIqdNdkm",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all inventory records from input\nconst items = $input.all();\n\n// Get trend analysis days from Workflow Configuration\nconst config = $('Workflow Configuration').first().json;\nconst trendAnalysisDays = config.trendAnalysisDays || 30; // Default to 30 days if not set\n\n// Group records by itemName\nconst itemGroups = {};\n\nfor (const item of items) {\n  const data = item.json;\n  const itemName = data.itemName;\n  \n  if (!itemGroups[itemName]) {\n    itemGroups[itemName] = [];\n  }\n  \n  itemGroups[itemName].push({\n    date: new Date(data.date || data.timestamp),\n    quantity: data.quantity\n  });\n}\n\n// Analyze trends for each item\nconst results = [];\n\nfor (const itemName in itemGroups) {\n  const records = itemGroups[itemName];\n  \n  // Sort records by date\n  records.sort((a, b) => a.date - b.date);\n  \n  // Get current quantity (most recent record)\n  const currentQuantity = records[records.length - 1].quantity;\n  \n  // Calculate average daily consumption rate\n  let totalConsumption = 0;\n  let daysCounted = 0;\n  \n  for (let i = 1; i < records.length; i++) {\n    const consumption = records[i - 1].quantity - records[i].quantity;\n    if (consumption > 0) {\n      totalConsumption += consumption;\n      daysCounted++;\n    }\n  }\n  \n  const averageDailyConsumption = daysCounted > 0 ? totalConsumption / daysCounted : 0;\n  \n  // Calculate days until stockout\n  let daysUntilStockout = null;\n  if (averageDailyConsumption > 0) {\n    daysUntilStockout = Math.floor(currentQuantity / averageDailyConsumption);\n  }\n  \n  // Determine trend (increasing/stable/declining)\n  let trend = 'stable';\n  if (records.length >= 2) {\n    const firstHalfAvg = records.slice(0, Math.floor(records.length / 2))\n      .reduce((sum, r) => sum + r.quantity, 0) / Math.floor(records.length / 2);\n    const secondHalfAvg = records.slice(Math.floor(records.length / 2))\n      .reduce((sum, r) => sum + r.quantity, 0) / (records.length - Math.floor(records.length / 2));\n    \n    if (secondHalfAvg > firstHalfAvg * 1.1) {\n      trend = 'increasing';\n    } else if (secondHalfAvg < firstHalfAvg * 0.9) {\n      trend = 'declining';\n    }\n  }\n  \n  // Flag items that will run out within the next 7 days\n  const isRunningOut = daysUntilStockout !== null && daysUntilStockout <= 7;\n  \n  results.push({\n    itemName: itemName,\n    currentQuantity: currentQuantity,\n    averageDailyConsumption: averageDailyConsumption,\n    daysUntilStockout: daysUntilStockout,\n    isRunningOut: isRunningOut,\n    trend: trend\n  });\n}\n\n// Return results in n8n format\nreturn results.map(item => ({json: item}));"
+      },
+      "id": "797ba4ef-47ed-42da-933e-3c46f3f95d6b",
+      "name": "Analyze Inventory Trends2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3600,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get filtered inventory trends (only running out items) from Filter Items Running Out node\nconst inventoryTrends = $('Filter Items Running Out').all();\n\n// Get supplier data from Read Supplier Dataset node\nconst supplierData = $input.all();\n\n// Create a map of supplier data by itemName for quick lookup\nconst supplierMap = {};\nfor (const item of supplierData) {\n  const data = item.json;\n  supplierMap[data.itemName] = data;\n}\n\n// Merge inventory trends with supplier data (only running out items)\nconst mergedResults = [];\n\nfor (const inventoryItem of inventoryTrends) {\n  const inventory = inventoryItem.json;\n  const supplier = supplierMap[inventory.itemName];\n  \n  if (supplier) {\n    // Combine data to create enriched records\n    mergedResults.push({\n      supplierEmail: supplier.supplierEmail,\n      supplierName: supplier.supplierName,\n      itemName: inventory.itemName,\n      quantity: inventory.currentQuantity,\n      unitCost: supplier.unitCost,\n      isRunningOut: inventory.isRunningOut,\n      daysUntilStockout: inventory.daysUntilStockout,\n      averageDailyConsumption: inventory.averageDailyConsumption,\n      trend: inventory.trend\n    });\n  }\n}\n\n// Return results in n8n format\nreturn mergedResults.map(item => ({json: item}));"
+      },
+      "id": "73c93068-9b55-422e-860e-736e0ad3839d",
+      "name": "Merge Inventory with Supplier Data2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4272,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.isRunningOut }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "478a6d6f-386c-4959-9d54-1a765206e369",
+      "name": "Filter Items Running Out2",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        3824,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "subject:\"Re: Urgent: Low Stock Alert\""
+        },
+        "options": {}
+      },
+      "id": "06ba0d74-c1b3-4f67-a933-c4e51d25f8da",
+      "name": "Supplier Email Response2",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        2928,
+        1056
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "hZmvkdClzJKPb26v",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Get email data from Gmail trigger\nconst emailData = $input.item.json;\n\n// Extract supplier email from 'from' field\nconst supplierEmail = emailData.from || emailData.sender || '';\n\n// Extract email subject and body\nconst subject = emailData.subject || '';\nconst body = emailData.textPlain || emailData.snippet || emailData.body || '';\n\n// Combine subject and body for parsing\nconst emailText = (subject + ' ' + body).toLowerCase();\n\n// Extract item name (look for patterns like \"Item Name:\", \"Product:\", \"Item:\")\nlet itemName = '';\nconst itemNamePatterns = [\n  /item name[:\\s]+([^\\n,]+)/i,\n  /product[:\\s]+([^\\n,]+)/i,\n  /item[:\\s]+([^\\n,]+)/i\n];\nfor (const pattern of itemNamePatterns) {\n  const match = emailText.match(pattern);\n  if (match) {\n    itemName = match[1].trim();\n    break;\n  }\n}\n\n// Extract delivery date (look for date patterns)\nlet deliveryDate = null;\nconst datePatterns = [\n  /delivery date[:\\s]+(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})/i,\n  /deliver[^\\d]+(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})/i,\n  /estimated delivery[:\\s]+(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})/i,\n  /(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})/\n];\nfor (const pattern of datePatterns) {\n  const match = emailText.match(pattern);\n  if (match) {\n    deliveryDate = match[1].trim();\n    break;\n  }\n}\n\n// Extract quantity confirmed (look for quantity patterns)\nlet quantityConfirmed = null;\nconst quantityPatterns = [\n  /quantity[:\\s]+(\\d+)/i,\n  /confirm[^\\d]+(\\d+)\\s*units/i,\n  /(\\d+)\\s*units/i\n];\nfor (const pattern of quantityPatterns) {\n  const match = emailText.match(pattern);\n  if (match) {\n    quantityConfirmed = parseInt(match[1]);\n    break;\n  }\n}\n\n// Determine order status based on keywords\nlet orderStatus = 'pending';\nif (emailText.includes('confirm') || emailText.includes('approved') || emailText.includes('accepted')) {\n  orderStatus = 'confirmed';\n} else if (emailText.includes('reject') || emailText.includes('decline') || emailText.includes('cannot fulfill')) {\n  orderStatus = 'rejected';\n} else if (emailText.includes('delay') || emailText.includes('postpone')) {\n  orderStatus = 'delayed';\n}\n\n// Get response date (email received date)\nconst responseDate = emailData.date || emailData.receivedDateTime || new Date().toISOString();\n\n// Return structured data\nreturn {\n  json: {\n    supplierEmail: supplierEmail,\n    itemName: itemName,\n    deliveryDate: deliveryDate,\n    quantityConfirmed: quantityConfirmed,\n    orderStatus: orderStatus,\n    responseDate: responseDate,\n    originalSubject: subject,\n    originalBody: body\n  }\n};"
+      },
+      "id": "3e8bc338-1625-48f0-9c95-5c23b7ecfe2a",
+      "name": "Parse Supplier Response2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3152,
+        1056
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get parsed supplier response data from previous node\nconst items = $input.all();\n\n// Prepare data for Excel update\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // Create new row entry for inventory Excel sheet\n  const inventoryUpdate = {\n    date: new Date().toISOString().split('T')[0], // Current date in YYYY-MM-DD format\n    timestamp: new Date().toISOString(), // Full timestamp\n    itemName: data.itemName || '',\n    quantity: data.updatedQuantity || data.quantity || 0,\n    supplierResponseStatus: data.responseStatus || 'Pending',\n    deliveryDate: data.deliveryDate || '',\n    notes: data.notes || data.supplierNotes || '',\n    supplierEmail: data.supplierEmail || '',\n    supplierName: data.supplierName || '',\n    orderConfirmed: data.orderConfirmed || false,\n    estimatedDeliveryDays: data.estimatedDeliveryDays || null\n  };\n  \n  results.push(inventoryUpdate);\n}\n\n// Return results in n8n format\nreturn results.map(item => ({json: item}));"
+      },
+      "id": "c9ed87ff-b73a-493c-a2d3-156d92b27ea6",
+      "name": "Prepare Inventory Update Data2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3376,
+        1056
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "workbook": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryWorkbookId }}"
+        },
+        "worksheet": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryWorksheetId }}"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.inventoryTableId }}"
+        },
+        "dataMode": "autoMap",
+        "options": {}
+      },
+      "id": "6f9953ea-0d93-416f-b1f4-4c4c6ca3b1d2",
+      "name": "Update Inventory Excel2",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2.2,
+      "position": [
+        3600,
+        1056
+      ],
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "yv4UMWNjUIqdNdkm",
+          "name": "Microsoft Excel account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily Supplier Check": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Read Inventory Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Low Stock High Cost Items": {
+      "main": [
+        [
+          {
+            "node": "Filter Items to Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Items to Order": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email Data": {
+      "main": [
+        [
+          {
+            "node": "Send Email to Supplier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Inventory Data": {
+      "main": [
+        [
+          {
+            "node": "Analyze Inventory Trends",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Supplier Dataset": {
+      "main": [
+        [
+          {
+            "node": "Merge Inventory with Supplier Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Inventory Trends": {
+      "main": [
+        [
+          {
+            "node": "Filter Items Running Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Items Running Out": {
+      "main": [
+        [
+          {
+            "node": "Read Supplier Dataset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Inventory with Supplier Data": {
+      "main": [
+        [
+          {
+            "node": "Find Low Stock High Cost Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supplier Email Response": {
+      "main": [
+        [
+          {
+            "node": "Parse Supplier Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Supplier Response": {
+      "main": [
+        [
+          {
+            "node": "Prepare Inventory Update Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Inventory Update Data": {
+      "main": [
+        [
+          {
+            "node": "Update Inventory Excel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c487858d-7624-4459-901a-ac2f5277d4f2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0eb79a0df6268e6b81c89d90f0c6eed5f833255f794ce27254ae441ad0117eff"
+  },
+  "id": "yVGCiN61g4ZFkrWX",
+  "tags": []
+}
