@@ -102,6 +102,184 @@ All key parameters are centralized for easy customization.
 4. Connect Gmail OAuth credentials
 5. Activate the workflow
 
+Here’s how the workflow operates — node by node 👇
+
+⏱️ 1. Daily Supplier Check (Trigger)
+
+The workflow begins with a scheduled trigger.
+Every day, at a fixed time, the system wakes up and asks one simple question:
+
+“Do we need to buy anything today?”
+
+No dashboards. No reminders. Just execution.
+
+⚙️ 2. Workflow Configuration
+
+Before touching data, the workflow loads configuration values:
+
+Stock thresholds
+
+Cost sensitivity rules
+
+Email parameters
+
+This keeps business logic separate from execution — making the workflow flexible and reusable.
+
+📊 3. Read Inventory Data (Excel)
+
+Next, the system pulls live inventory data directly from Microsoft Excel.
+
+This is intentional.
+
+Instead of forcing a new tool or ERP, the workflow integrates with what teams already use.
+
+📉 4. Analyze Inventory Trends
+
+Raw stock levels don’t tell the full story.
+So this node analyzes:
+
+Consumption patterns
+
+Rate of depletion
+
+Materials approaching risk zones
+
+This prevents reactive purchasing and enables early decisions.
+
+🔍 5. Filter Items Running Out
+
+Now the system becomes selective.
+
+Only materials that fall below defined thresholds move forward.
+Everything else is ignored — reducing noise and unnecessary processing.
+
+🧾 6. Read Supplier Dataset (Excel)
+
+For each shortlisted material, supplier data is fetched from a second Excel sheet:
+
+Supplier name
+
+Cost per unit
+
+Contact email
+
+No hardcoded vendors. The system adapts as data changes.
+
+🔗 7. Merge Inventory with Supplier Data
+
+This is the decision point.
+
+Inventory requirements are merged with supplier options, allowing the workflow to:
+
+Match materials with valid suppliers
+
+Compare prices automatically
+
+Prepare structured purchase candidates
+
+💰 8. Identify Low-Stock, High-Cost Risks
+
+The workflow flags items where:
+
+Stock is low
+
+Cost impact is high
+
+These are prioritized to reduce financial risk and production delays.
+
+📦 9. Filter Final Items to Order
+
+Only actionable purchase requests survive this stage.
+By now, the list is clean, minimal, and decision-ready.
+
+✉️ 10. Prepare Email Data
+
+Each purchase request is converted into a structured email:
+
+Material details
+
+Quantity required
+
+Supplier-specific context
+
+No templates copied manually.
+Everything is generated dynamically.
+
+📤 11. Send Email to Supplier (Gmail API)
+
+Emails are sent automatically using Gmail integration.
+
+At this point, the system has:
+✔ Identified the need
+✔ Chosen the supplier
+✔ Initiated the request
+
+Human involvement: zero.
+
+🔁 Parallel Workflow: Capturing Supplier Responses
+
+Automation doesn’t stop at sending emails.
+
+📥 12. Supplier Email Response (Gmail Trigger)
+
+When a supplier replies, a second workflow is triggered instantly.
+
+No inbox monitoring.
+No manual checks.
+
+🧩 13. Parse Supplier Response
+
+Responses are parsed to extract:
+
+Confirmation
+
+Rejection
+
+Delivery timelines
+
+Pricing changes
+
+Unstructured emails become structured data.
+
+🛠️ 14. Prepare Inventory Update Data
+
+Based on the response, inventory updates are prepared:
+
+Confirmed orders
+
+Pending follow-ups
+
+Exception cases
+
+This ensures the system stays in sync with reality.
+
+📘 15. Update Inventory Excel
+
+Finally, all outcomes are written back into Excel.
+
+The same system that triggered the purchase now records its result — closing the loop.
+
+🧩 Final Thought
+
+This entire system:
+
+Runs from a single JSON file
+
+Uses existing tools (Excel + Gmail)
+
+Automates decisions, not just actions
+
+It’s not about replacing people.
+It’s about removing friction from operational decisions.
+
+Workflow visuals are attached above ⬆️
+Every node exists for a reason.
+
+Curious to hear:
+👉 Which operational workflow do you think still relies too much on manual judgment?
+
+#n8n #WorkflowAutomation #AIinOperations #ProcurementAutomation #ManufacturingTech #NoCode #LowCode #IndiaTech #ChennaiTech #BangaloreTech #BuildingInPublic
+
 ---
 
 ## Security Considerations
